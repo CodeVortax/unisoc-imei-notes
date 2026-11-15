@@ -72,10 +72,24 @@ def scan_reported(data, imeis):
                 print("  reported %s... found as %s x%d" % (s[:8], label, n))
 
 
+DEFAULT_SERIAL = b"0123456789ABCDEF"
+
+
+def scan_serial(data, serials):
+    if DEFAULT_SERIAL in data:
+        print("  default placeholder serial found at 0x%X" % data.find(DEFAULT_SERIAL))
+    for s in serials:
+        for label, pat in (("ascii", s.encode()), ("utf16", s.encode("utf-16-le"))):
+            n = data.count(pat)
+            if n:
+                print("  serial found as %s x%d (first at 0x%X)" % (label, n, data.find(pat)))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("folder")
     ap.add_argument("--reported", nargs="*", default=[], help="IMEIs shown by the phone to look for")
+    ap.add_argument("--serial", nargs="*", default=[], help="serial numbers to look for")
     ap.add_argument("--mask", action="store_true", help="hide the last digits in the output")
     a = ap.parse_args()
     files = sorted(glob.glob(os.path.join(a.folder, "**", "*.bin"), recursive=True))
@@ -89,6 +103,7 @@ def main():
         scan_mac(data, a.mask)
         if a.reported:
             scan_reported(data, a.reported)
+        scan_serial(data, a.serial)
 
 
 if __name__ == "__main__":

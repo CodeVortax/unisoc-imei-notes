@@ -32,6 +32,13 @@ In the example backup the record headers sit at:
 
 All copies agreed with each other.
 
+## Other partitions named in the Realme C51 forum
+
+The thread also tells users to back up `miscdata` (PhaseCheck, which most likely holds the serial)
+and mentions `ocdt_a/b` (model/project ID). Neither is in the example backup. See
+[08-realme-c51-forum-findings.md](08-realme-c51-forum-findings.md) and
+[07-serial-number.md](07-serial-number.md).
+
 ## Important: the NV IMEI may not be the one Android shows
 
 In the example, the NV records held one IMEI pair while the phone reported a different pair. The

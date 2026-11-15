@@ -18,6 +18,8 @@ and how the common tools read or write them. Built from:
 | [docs/04-writeimei-serial-and-imei.md](docs/04-writeimei-serial-and-imei.md) | How WriteIMEI handles IMEI and serial number |
 | [docs/05-other-tools.md](docs/05-other-tools.md) | Do the other tools do something different? |
 | [docs/06-case-study-backup.md](docs/06-case-study-backup.md) | Findings from the real backup (identifiers masked) |
+| [docs/07-serial-number.md](docs/07-serial-number.md) | Where the serial number is stored and how WriteIMEI handles it |
+| [docs/08-realme-c51-forum-findings.md](docs/08-realme-c51-forum-findings.md) | Digest of a Realme C51 forum thread: partitions, backups, reports |
 | [tools/scan_backup.py](tools/scan_backup.py) | Read-only scanner: finds IMEI NV records and MAC strings in a backup folder |
 
 ## Scope and limits
@@ -40,4 +42,5 @@ for changing identifiers.
 ```sh
 python3 tools/scan_backup.py /path/to/backup_folder
 python3 tools/scan_backup.py /path/to/backup_folder --reported 123456789012345 --mask
+python3 tools/scan_backup.py /path/to/backup_folder --serial YOURSERIAL
 ```

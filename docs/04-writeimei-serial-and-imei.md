@@ -20,6 +20,7 @@ the protocol is in the closed `PhoneCommand.dll`.
   length must not exceed 24 characters, otherwise the run fails with a length error.
 - Written with `SP_WriteSN(handle, isPrimary, buffer, length)`; read with `SP_ReadSN`.
 - Failure message: "write SN fail" with the error code; the station result is marked failed.
+- Length is set in the ini file (default 14, limit 64); see [07-serial-number.md](07-serial-number.md).
 
 ## IMEI
 
