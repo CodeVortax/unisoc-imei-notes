@@ -20,8 +20,10 @@ and how the common tools read or write them. Built from:
 | [docs/06-case-study-backup.md](docs/06-case-study-backup.md) | Findings from the real backup (identifiers masked) |
 | [docs/07-serial-number.md](docs/07-serial-number.md) | Where the serial number is stored and how WriteIMEI handles it |
 | [docs/08-realme-c51-forum-findings.md](docs/08-realme-c51-forum-findings.md) | Digest of a Realme C51 forum thread: partitions, backups, reports |
+| [docs/09-serial-and-mac-tool.md](docs/09-serial-and-mac-tool.md) | How `idtool.py` works, its checks and its limits |
 | [tools/scan_backup.py](tools/scan_backup.py) | Read-only scanner: finds IMEI NV records and MAC strings in a backup folder |
 | [tools/parse_miscdata.py](tools/parse_miscdata.py) | Read-only parser for the `miscdata` phase-check record (serial, stations) |
+| [tools/idtool.py](tools/idtool.py) | Read serial/MACs from dumps; make patched copies (never touches a device) |
 
 ## Scope and limits
 
@@ -45,4 +47,5 @@ python3 tools/scan_backup.py /path/to/backup_folder
 python3 tools/scan_backup.py /path/to/backup_folder --reported 123456789012345 --mask
 python3 tools/scan_backup.py /path/to/backup_folder --serial YOURSERIAL
 python3 tools/parse_miscdata.py /path/to/miscdata.bin --mask
+python3 tools/idtool.py get /path/to/dump_folder --mask
 ```
