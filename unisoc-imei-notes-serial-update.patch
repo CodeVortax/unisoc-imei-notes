@@ -1,0 +1,204 @@
+diff --git a/README.md b/README.md
+index c68b56f..6f07fb1 100644
+--- a/README.md
++++ b/README.md
+@@ -21,6 +21,7 @@ and how the common tools read or write them. Built from:
+ | [docs/07-serial-number.md](docs/07-serial-number.md) | Where the serial number is stored and how WriteIMEI handles it |
+ | [docs/08-realme-c51-forum-findings.md](docs/08-realme-c51-forum-findings.md) | Digest of a Realme C51 forum thread: partitions, backups, reports |
+ | [tools/scan_backup.py](tools/scan_backup.py) | Read-only scanner: finds IMEI NV records and MAC strings in a backup folder |
++| [tools/parse_miscdata.py](tools/parse_miscdata.py) | Read-only parser for the `miscdata` phase-check record (serial, stations) |
+ 
+ ## Scope and limits
+ 
+@@ -43,4 +44,5 @@ for changing identifiers.
+ python3 tools/scan_backup.py /path/to/backup_folder
+ python3 tools/scan_backup.py /path/to/backup_folder --reported 123456789012345 --mask
+ python3 tools/scan_backup.py /path/to/backup_folder --serial YOURSERIAL
++python3 tools/parse_miscdata.py /path/to/miscdata.bin --mask
+ ```
+diff --git a/docs/04-writeimei-serial-and-imei.md b/docs/04-writeimei-serial-and-imei.md
+index a3c107a..d9f10ee 100644
+--- a/docs/04-writeimei-serial-and-imei.md
++++ b/docs/04-writeimei-serial-and-imei.md
+@@ -20,7 +20,7 @@ the protocol is in the closed `PhoneCommand.dll`.
+   length must not exceed 24 characters, otherwise the run fails with a length error.
+ - Written with `SP_WriteSN(handle, isPrimary, buffer, length)`; read with `SP_ReadSN`.
+ - Failure message: "write SN fail" with the error code; the station result is marked failed.
+-- Length is set in the ini file (default 14, limit 64); see [07-serial-number.md](07-serial-number.md).
++- Length is set in the ini file (default 14, limit 64). The serial is stored in the `miscdata` phase-check record; see [07-serial-number.md](07-serial-number.md).
+ 
+ ## IMEI
+ 
+diff --git a/docs/07-serial-number.md b/docs/07-serial-number.md
+index 9be2d0f..3af8d81 100644
+--- a/docs/07-serial-number.md
++++ b/docs/07-serial-number.md
+@@ -1,59 +1,76 @@
+ # 07 - Serial number
+ 
+-## What WriteIMEI does with serial numbers
++## Confirmed: the serial lives in `miscdata`
+ 
+-Source: `WriteFlashDlg.cpp` (R21.0.0001).
++A read-only dump of a Realme C51 (RMX3830) showed the serial number shown by the phone
++(dialer device-information dialog) as ASCII at **offset `0x04` of `miscdata`**. It was not in any other
++partition that was dumped (NV, `prodnv`, `persist`, `ocdt`, `opporeserve`, `oplusreserve*`), nor in an
++older NV/`prodnv` backup, nor in the firmware package.
+ 
+-- Two serials exist, SN1 (primary) and SN2 (secondary). Each is optional, manual or auto.
+-- Write and read go through `SP_WriteSN(handle, isPrimary, buffer, length)` and `SP_ReadSN(...)`
+-  in the closed `PhoneCommand.dll`.
+-- Length comes from the ini file (constants `SZ_KEY_SN1LEN` / `SZ_KEY_SN2LEN`). Default 14,
+-  clamped to 1-64 characters (`WIMEI_SN_LENGTH_MAXIMIZE` = 0x40). This matches a forum poster who had
+-  a 16-character serial but a tool build limited to 14 and "found where the length changes".
+-- Before writing, the tool reads a magic number with `SP_ReadProductFlash`. If it equals
+-  `SP09_SPPH_MAGIC_NUMBER`, the serial may not exceed 24 characters.
+-- Auto serial: `AutoCreateSN` builds `YYYYMMDDhhmmss` and pads or trims it.
+-- Station-check errors are named `SPPH_INVALID_PRODUCTINFO` and `SPPH_WRITE_PRODUCTINFO_FAIL`.
+-  SPPH is Spreadtrum's phase-check record. The serial and the station results share that record
+-  (my reading of the names and the magic-number check; the struct itself is not in the zip).
++`miscdata` is Spreadtrum's **phase-check** record ("PhaseCheck" in the forum). WriteIMEI's serial
++functions read and write this record (see "How WriteIMEI handles it" below).
+ 
+-## Where the serial is stored (inference)
++## Record layout seen in the dump (1 MB partition)
+ 
+-On the Realme C51 the 4PDA thread calls the phase-check partition **PhaseCheck (`miscdata`)**.
+-A poster who erased NV_LTE, `prodnv` and `miscdata` together reported the serial turning into
+-`0123456789ABCDEF`, the IMEI disappearing and the MACs resetting. That shows the serial is in one of
+-those three partitions. It does not show which. The code points to the phase-check record, so
+-`miscdata` is the most likely home.
++| Offset | Size | Content in the example |
++|---|---|---|
++| `0x00` | 4 | Magic `SP09` (stored as bytes `39 30 50 53`, i.e. a little-endian 0x53503039) |
++| `0x04` | 24 | **SN1**, ASCII, NUL-padded (the phone's serial; 14 digits here) |
++| `0x1C` | 24 | **SN2**, empty here |
++| `0x34` | 4 | Station count (7) |
++| `0x38` | 15 x 10 | Station names, 10-byte slots: `DOWNLOAD`, `WRITESN`, `CFT`, `BBAT`, `WCN`, `ANTENNA`, `IMEI` |
++| `0xDB` | 1 | A flag byte (1) |
++| `0xDC` | 32 | Text result: `PASS` |
++| `0xFC` | 2 | Test-sign bit mask (`0xFFFE`) |
++| `0xFE` | 2 | Item bit mask (`0x7FFE`) |
++| `0x100`-`0x1FFF` | | Mostly `0xFF` (erased), with a stray `0x30` byte at `0x300` and `0x3A0` |
++| `0x2000` | 64 | Random-looking data (two repeated 16-byte patterns); not decoded |
++| `0x2900` | ~32 | A small record starting `a5 a5 5a 5a`; not decoded |
++| rest | | Zeros |
+ 
+-## What the example backup shows
++The layout follows the Spreadtrum phase-check structure as I remember it and was checked against
++this one dump only. The two bit masks and everything from `0x100` on are not decoded. Treat offsets
++after `0x38` as tentative.
+ 
+-| Check | Result |
+-|---|---|
+-| Default placeholder `0123456789ABCDEF` | Not present in any file |
+-| Serial-like strings in `l_fixnv*`, `l_runtimenv*`, `l_deltanv*` | None found (the strings there are modem version, carrier names and filler) |
+-| Files in the `prodnv` filesystem | MAC files, a 64-hex-character `GUID`, display and sensor data, secure storage; no serial file |
+-| `miscdata` / PhaseCheck | **Not in the backup** |
++## How WriteIMEI handles it
++
++Source: `WriteFlashDlg.cpp` (R21.0.0001).
+ 
+-Conclusion: the serial is most likely in `miscdata`, which this backup lacks. A forum post claiming
+-that `prodnv` holds the serial is not supported by this backup. The `GUID` file is a hash-like
+-identifier and was not identified as the serial.
++- Two serials, SN1 (primary) and SN2 (secondary), each optional, manual or auto.
++- Read and write through `SP_ReadSN` / `SP_WriteSN(handle, isPrimary, buffer, length)`.
++- Length comes from the ini file (`SZ_KEY_SN1LEN` / `SZ_KEY_SN2LEN`): default **14**, clamped to
++  1-64 (`WIMEI_SN_LENGTH_MAXIMIZE` = 0x40). The dumped serial has exactly 14 digits, which matches the
++  default but does not prove the tool wrote it.
++- The tool first reads a magic number with `SP_ReadProductFlash`; if it equals
++  `SP09_SPPH_MAGIC_NUMBER`, the serial may not exceed 24 characters. That is the same `SP09` marker
++  found at the start of `miscdata`.
++- Auto serial: `AutoCreateSN` builds `YYYYMMDDhhmmss` and pads or trims it.
++- Station-check errors (`SPPH_INVALID_PRODUCTINFO`, `SPPH_WRITE_PRODUCTINFO_FAIL`) refer to the same
++  record, which also stores the factory station results listed above.
+ 
+-## Other reports from the thread
++## Related facts
+ 
+-- After flashing with a factory tool, one user kept the correct serial while the IMEI was lost.
+-- Another entered the serial in a flasher's "Input SN" prompt and flashing started before the full
+-  serial was typed.
+-- A user wrote that after writing an IMEI, the serial field showed the IMEI. Unverified.
++| Check | Result |
++|---|---|
++| Android property `persist.sys.oppo.serialno` | Empty on the example phone |
++| `ro.serialno` / `ro.boot.serialno` | Not visible to an ordinary Termux shell |
++| Default placeholder `0123456789ABCDEF` | Not present |
++| Forum report | Erasing NV_LTE, `prodnv` and `miscdata` together reset the serial to that placeholder |
++| AI-written forum post claiming `prodnv` holds the serial | Not supported: no serial in `prodnv` |
+ 
+ ## Check it on your own phone
+ 
+ ```sh
+-adb shell getprop ro.serialno
++# read-only dump (needs root), run in Termux
++su -c 'dd if=/dev/block/by-name/miscdata of=/sdcard/miscdata.bin bs=1M'
++python3 tools/parse_miscdata.py /sdcard/miscdata.bin --mask
+ ```
+ 
+-Compare with Settings > About phone and the sticker. To locate the stored copy, back up `miscdata`
+-(read-only, with the flasher's Active Read Flash), then search the dump for your serial:
++Compare the serial it shows with Settings, the dialer device-information dialog and the sticker.
+ 
+-```sh
+-python3 tools/scan_backup.py <folder> --serial YOURSERIAL
+-```
++## What is still unknown
++
++- Whether other partitions keep a second copy of the serial.
++- Whether a damaged serial affects the IMEI. The IMEI records are in the NV partitions, not in this
++  record, but the same tool run writes both.
++- The meaning of the two bit masks and of the blocks at `0x2000` and `0x2900`.
+diff --git a/tools/parse_miscdata.py b/tools/parse_miscdata.py
+new file mode 100644
+index 0000000..844664a
+--- /dev/null
++++ b/tools/parse_miscdata.py
+@@ -0,0 +1,45 @@
++#!/usr/bin/env python3
++"""Read-only parser for a Spreadtrum 'miscdata' (phase-check) dump.
++
++Prints the serial numbers and the station list. Layout verified on one RMX3830 dump;
++offsets after 0x38 are tentative. Never writes anything.
++"""
++import argparse
++import struct
++import sys
++
++MAGIC = b"90PS"  # 'SP09' stored little-endian
++
++
++def cstr(b):
++    return b.split(b"\0")[0].decode("ascii", "replace")
++
++
++def mask(s, keep, on):
++    return s if not on or len(s) <= keep else s[:keep] + "*" * (len(s) - keep)
++
++
++def main():
++    ap = argparse.ArgumentParser(description=__doc__)
++    ap.add_argument("file")
++    ap.add_argument("--mask", action="store_true", help="hide most of each serial")
++    a = ap.parse_args()
++    d = open(a.file, "rb").read()
++    if len(d) < 0x100:
++        sys.exit("file too small for a phase-check record")
++    print("magic:", d[:4], "OK" if d[:4] == MAGIC else "NOT SP09 - layout unknown")
++    print("SN1:", mask(cstr(d[0x04:0x1C]), 4, a.mask) or "(empty)")
++    print("SN2:", mask(cstr(d[0x1C:0x34]), 4, a.mask) or "(empty)")
++    n = struct.unpack("<I", d[0x34:0x38])[0]
++    print("stations:", n)
++    names = [cstr(d[0x38 + i * 10:0x38 + (i + 1) * 10]) for i in range(min(n, 15))]
++    print("names:", ", ".join(names))
++    print("result text @0xDC:", cstr(d[0xDC:0xFC]) or "(empty)")
++    print("bit masks @0xFC/0xFE: 0x%04X 0x%04X" % struct.unpack("<HH", d[0xFC:0x100]))
++    tail = d[0x100:]
++    other = sum(1 for b in tail if b not in (0x00, 0xFF))
++    print("bytes after 0x100 that are neither 0x00 nor 0xFF (not decoded):", other)
++
++
++if __name__ == "__main__":
++    main()
