@@ -1,0 +1,9 @@
+diff a/README.md b/README.md	(rejected hunks)
+@@ -21,6 +21,7 @@ and how the common tools read or write them. Built from:
+ | [docs/07-serial-number.md](docs/07-serial-number.md) | Where the serial number is stored and how WriteIMEI handles it |
+ | [docs/08-realme-c51-forum-findings.md](docs/08-realme-c51-forum-findings.md) | Digest of a Realme C51 forum thread: partitions, backups, reports |
+ | [docs/09-serial-and-mac-tool.md](docs/09-serial-and-mac-tool.md) | How `idtool.py` works, its checks and its limits |
++| [docs/10-cross-device-finding-and-disclosure.md](docs/10-cross-device-finding-and-disclosure.md) | Cross-device proof the plain IMEI is a stock template; a public bypass report worth disclosing to Unisoc |
+ | [tools/scan_backup.py](tools/scan_backup.py) | Read-only scanner: finds IMEI NV records and MAC strings in a backup folder |
+ | [tools/parse_miscdata.py](tools/parse_miscdata.py) | Read-only parser for the `miscdata` phase-check record (serial, stations) |
+ | [tools/idtool.py](tools/idtool.py) | Read serial/MACs from dumps; make patched copies (never touches a device) |

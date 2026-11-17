@@ -8,7 +8,16 @@ and how the common tools read or write them. Built from:
 - the XDA thread *"How to Root SpreadTrum SP6820"* (pages 7-9; NVEditor / Project.rar tutorial),
 - a read-only analysis of one real NV backup (Realme RMX3830, Android 17).
 
-## Contents
+## Device-Specific Restoration Tools
+
+This repo now includes complete restoration tools for Unisoc devices:
+
+| Device | Tool | Documentation |
+|--------|------|---------------|
+| Realme C21Y (RMX3261/3263) | [tools/c21y_imei_restore.py](tools/c21y_imei_restore.py) | [HOW_IT_WORKS_C21Y.md](HOW_IT_WORKS_C21Y.md) |
+| Realme C51 (RMX3830) | [tools/c51_imei_restore.py](tools/c51_imei_restore.py) | [devices/c51/README.md](devices/c51/README.md) |
+
+## Documentation Contents
 
 | File | What it covers |
 |---|---|
