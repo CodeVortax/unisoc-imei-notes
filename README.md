@@ -59,3 +59,7 @@ python3 tools/parse_miscdata.py /path/to/miscdata.bin --mask
 python3 tools/idtool.py get /path/to/dump_folder --mask
 python3 tools/idtool.py patch-imei /path/to/l_fixnv1_a.bin --imei1 YOURIMEI1 --imei2 YOURIMEI2 --out /path/to/l_fixnv1_a_patched.bin
 ```
+
+## License
+
+AGPL-3.0-only. See [LICENSE](LICENSE).
